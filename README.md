@@ -1,2 +1,46 @@
 # nps_survey
-NPS Survey MVP
+
+A small Net Promoter Score (NPS) survey app for the Vibe Coding Bootcamp. A 3-step flow —
+rate 0–10, leave an optional comment, then see the live cohort NPS and what people said.
+
+## Stack
+
+- **client/** — React + Vite + TypeScript (Tailwind available). The whole survey UI.
+- **server/** — Express + `better-sqlite3`. REST API at `/api/responses` and, in
+  production, serves the built client.
+- **SQLite** — responses persist in `server/data/nps.db` (auto-created and seeded on first
+  run). The data dir is gitignored.
+
+## Develop
+
+```bash
+npm install            # root tooling (concurrently)
+npm run dev            # client on :5173 (Vite), server on :3001; Vite proxies /api
+```
+
+## Test
+
+```bash
+npm test               # server (vitest) + client (vitest) unit/component tests
+npm run test:e2e       # Playwright end-to-end test of the full survey flow
+```
+
+## Build & run (production)
+
+```bash
+npm run build          # installs sub-deps, compiles the server, builds the client
+npm start              # serves API + built client on $PORT (default 3001)
+```
+
+The server serves the built client whenever `NODE_ENV` is not `development`, so a plain
+`npm start` (or a Railway deploy) hosts the whole app from one process.
+
+## Deploy
+
+Pushes to `main` deploy to Railway. Railway runs `npm run build` then `npm start`; it sets
+`PORT` automatically.
+
+## API
+
+- `POST /api/responses` — body `{ score: 0–10, comment?: string }` → `{ id }`
+- `GET  /api/responses?youId=<id>` → `{ responses, nps, total, counts }`

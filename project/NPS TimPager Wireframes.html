@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NPS TimPager — Triage Dashboard Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#33312e;
+    --ink-soft:#6b6862;
+    --ink-faint:#a8a49c;
+    --paper:#f4f2ec;
+    --line:#cfcabf;
+    --crit-b:#b04a3f; --crit-bg:#f6e3df;
+    --warn-b:#9c7726; --warn-bg:#f4ecd6;
+    --ok-b:#4a7a5c;  --ok-bg:#e2eee6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Kalam',cursive;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  /* paper grid texture */
+  .canvas{
+    background-image:
+      linear-gradient(rgba(150,145,135,.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(150,145,135,.10) 1px, transparent 1px);
+    background-size:26px 26px;
+  }
+
+  /* ---------- top control bar (tool chrome, intentionally "real") ---------- */
+  .toolbar{
+    position:sticky;top:0;z-index:50;
+    background:#2c2a27;color:#f4f2ec;
+    border-bottom:2px solid #1c1b19;
+    display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+    padding:11px 20px;
+    font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  .tb-brand{font-weight:700;font-size:14px;letter-spacing:.3px;display:flex;align-items:center;gap:9px;}
+  .tb-brand .sq{width:15px;height:15px;border:2px solid #f4f2ec;border-radius:3px;transform:rotate(8deg);}
+  .tb-brand small{font-weight:500;opacity:.55;font-size:11px;letter-spacing:.5px;text-transform:uppercase;}
+  .tb-group{display:flex;align-items:center;gap:7px;}
+  .tb-label{font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;opacity:.5;font-weight:600;margin-right:2px;}
+  .seg{display:flex;background:#211f1d;border-radius:8px;padding:3px;gap:2px;}
+  .seg button{
+    font:inherit;font-size:12.5px;font-weight:600;color:#cbc7bf;
+    background:transparent;border:0;cursor:pointer;
+    padding:6px 12px;border-radius:6px;white-space:nowrap;transition:all .12s;
+  }
+  .seg button:hover{color:#fff;}
+  .seg button[aria-pressed="true"]{background:#f4f2ec;color:#2c2a27;}
+  .tb-spacer{flex:1;}
+  .tb-hint{font-size:11.5px;opacity:.55;font-weight:500;}
+
+  /* ---------- canvas ---------- */
+  .canvas{padding:34px 26px 90px;min-height:100vh;}
+  .stage-head{max-width:1240px;margin:0 auto 22px;}
+  .stage-head h1{font-size:27px;margin:0 0 2px;font-weight:700;}
+  .stage-head p{margin:0;color:var(--ink-soft);font-size:16px;}
+  .stage-head .dir-name{border-bottom:2.5px dashed var(--ink);padding-bottom:1px;}
+
+  .frame-wrap{max-width:1240px;margin:0 auto;display:flex;gap:30px;align-items:flex-start;}
+  .frame-main{flex:1;min-width:0;}
+  .frame-mobile{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;}
+
+  /* ---------- sketch primitives ---------- */
+  .sk{
+    border:2.5px solid var(--ink);
+    background:#fff;
+    border-radius:255px 12px 250px 12px/12px 250px 12px 255px;
+  }
+  .sk.alt{border-radius:12px 250px 12px 255px/255px 12px 250px 12px;}
+  .pad{padding:16px 18px;}
+  .row{display:flex;align-items:center;}
+  .col{display:flex;flex-direction:column;}
+  .gap-2{gap:8px;} .gap-3{gap:12px;} .gap-4{gap:16px;} .gap-5{gap:22px;}
+  .grow{flex:1;min-width:0;}
+  .wrap{flex-wrap:wrap;}
+  .center{align-items:center;justify-content:center;}
+  .between{justify-content:space-between;}
+  .mt-1{margin-top:6px;} .mt-2{margin-top:12px;} .mt-3{margin-top:18px;}
+
+  /* placeholder bars (body text) */
+  .bar{height:9px;border-radius:6px;background:#d9d5cc;}
+  .bar.dark{background:#bdb8ad;}
+  .bar.w90{width:90%;} .bar.w80{width:80%;} .bar.w70{width:70%;}
+  .bar.w60{width:60%;} .bar.w50{width:50%;} .bar.w40{width:40%;} .bar.w30{width:30%;}
+  .bars{display:flex;flex-direction:column;gap:7px;}
+
+  .h-strong{font-weight:700;font-size:18px;line-height:1.1;}
+  .h-mid{font-weight:700;font-size:15px;}
+  .muted{color:var(--ink-soft);font-size:13.5px;}
+  .tiny{font-size:12px;color:var(--ink-faint);font-weight:600;letter-spacing:.4px;text-transform:uppercase;}
+  .lead{font-weight:700;}
+
+  /* score circle — the hero element */
+  .score{
+    border:3px solid var(--ink);border-radius:50%;
+    display:grid;place-items:center;font-weight:700;flex:none;
+    background:#fff;line-height:1;
+  }
+  .score.sm{width:40px;height:40px;font-size:19px;border-width:2.5px;}
+  .score.md{width:54px;height:54px;font-size:25px;}
+  .score.xl{width:118px;height:118px;font-size:58px;border-width:4px;}
+  .score.crit{border-color:var(--crit-b);background:var(--crit-bg);color:var(--crit-b);}
+  .score.warn{border-color:var(--warn-b);background:var(--warn-bg);color:var(--warn-b);}
+  .score.ok{border-color:var(--ok-b);background:var(--ok-bg);color:var(--ok-b);}
+
+  /* status pill */
+  .pill{
+    border:2px solid var(--ink);border-radius:40px;
+    padding:3px 11px;font-size:12px;font-weight:700;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ink);}
+  .pill.crit{border-color:var(--crit-b);color:var(--crit-b);} .pill.crit .dot{background:var(--crit-b);}
+  .pill.warn{border-color:var(--warn-b);color:var(--warn-b);} .pill.warn .dot{background:var(--warn-b);}
+  .pill.ok{border-color:var(--ok-b);color:var(--ok-b);} .pill.ok .dot{background:var(--ok-b);}
+
+  /* badge (tier) */
+  .badge{border:2px dashed var(--ink);border-radius:6px;padding:3px 9px;font-size:12.5px;font-weight:700;}
+
+  /* button sketch */
+  .btn{
+    border:2.5px solid var(--ink);border-radius:40px;background:#fff;
+    padding:9px 18px;font:inherit;font-weight:700;font-size:14.5px;color:var(--ink);
+    cursor:default;display:inline-flex;align-items:center;gap:8px;
+  }
+  .btn.fill{background:var(--ink);color:#fff;}
+  .btn.block{width:100%;justify-content:center;}
+  .btn.sec{border-style:dashed;}
+
+  /* textarea sketch */
+  .ta{border:2.5px dashed var(--ink);border-radius:10px;min-height:78px;background:#fff;
+     padding:11px 13px;color:var(--ink-faint);font-size:14px;}
+  .scribble{height:8px;border-radius:6px;background:repeating-linear-gradient(90deg,#cfcabf 0 14px,transparent 14px 22px);}
+
+  /* blockquote */
+  .quote{border-left:5px solid var(--ink);background:#faf8f3;border-radius:0 10px 10px 0;
+         padding:13px 16px;font-size:16px;font-style:italic;line-height:1.45;}
+  .quote .qmark{font-size:30px;font-weight:700;line-height:0;vertical-align:-6px;margin-right:4px;}
+
+  /* nav bar inside wireframe */
+  .wf-nav{display:flex;align-items:center;gap:16px;padding:13px 18px;}
+  .wf-logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;}
+  .wf-logo .mk{width:24px;height:24px;border:2.5px solid var(--ink);border-radius:6px;display:grid;place-items:center;font-size:13px;}
+  .navlink{font-weight:700;font-size:14px;color:var(--ink-soft);padding:5px 4px;border-bottom:2.5px solid transparent;}
+  .navlink.on{color:var(--ink);border-bottom-color:var(--ink);}
+  .oncall{display:flex;align-items:center;gap:8px;border:2px solid var(--ok-b);border-radius:40px;padding:5px 12px;font-weight:700;font-size:13px;color:var(--ok-b);}
+  .oncall .led{width:9px;height:9px;border-radius:50%;background:var(--ok-b);box-shadow:0 0 0 3px rgba(74,122,92,.18);}
+  .agent{display:flex;align-items:center;gap:9px;}
+  .avatar{width:34px;height:34px;border:2.5px solid var(--ink);border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none;}
+
+  /* filter toggle */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;}
+  .ftab{border:2px solid var(--ink);border-radius:40px;padding:5px 13px;font-weight:700;font-size:13.5px;background:#fff;display:flex;align-items:center;gap:7px;}
+  .ftab .cnt{background:var(--ink);color:#fff;border-radius:40px;font-size:11px;padding:1px 7px;}
+  .ftab.on{background:var(--ink);color:#fff;}
+  .ftab.on .cnt{background:#fff;color:var(--ink);}
+
+  /* metric micro-grid */
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .metric{border:2px solid var(--ink);border-radius:12px;padding:12px 13px;background:#fff;}
+  .metric .mv{font-weight:700;font-size:26px;line-height:1;}
+  .metric .ml{font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:6px;letter-spacing:.3px;}
+  .metric .trend{font-size:12px;font-weight:700;margin-top:3px;}
+  .metric .trend.down{color:var(--crit-b);}
+
+  /* queue item */
+  .qitem{display:flex;align-items:center;gap:13px;padding:12px 13px;border:2px solid var(--line);border-radius:14px;background:#fff;}
+  .qitem.sel{border-color:var(--ink);border-width:2.5px;background:#fbf9f4;box-shadow:4px 4px 0 rgba(51,49,46,.10);}
+  .qitem .qbody{flex:1;min-width:0;}
+  .qitem .qname{font-weight:700;font-size:15.5px;}
+  .qitem .qmeta{font-size:12.5px;color:var(--ink-soft);}
+  .qitem .qright{display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+  .clock{font-size:12.5px;font-weight:700;color:var(--ink-soft);display:flex;align-items:center;gap:5px;}
+  .clock .ic{width:13px;height:13px;border:2px solid var(--ink-soft);border-radius:50%;position:relative;flex:none;}
+  .clock .ic::after{content:"";position:absolute;left:50%;top:50%;width:3px;height:5px;border-left:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);transform:translate(-1px,-4px);}
+
+  /* phone frame */
+  .phone{width:340px;flex:none;border:3px solid var(--ink);border-radius:36px;background:#fff;padding:11px;box-shadow:6px 7px 0 rgba(51,49,46,.10);}
+  .phone .notch{height:20px;display:flex;align-items:center;justify-content:center;}
+  .phone .notch .pill-notch{width:80px;height:7px;border-radius:40px;background:var(--ink);}
+  .phone .screen{border:2px solid var(--line);border-radius:24px;padding:13px;min-height:560px;display:flex;flex-direction:column;gap:13px;background:var(--paper);}
+  .phone-cap{text-align:center;font-weight:700;font-size:13px;color:var(--ink-soft);margin-top:9px;}
+  .mob-nav{display:flex;align-items:center;justify-content:space-between;}
+  .mob-tabs{display:flex;border-top:2px solid var(--line);padding-top:9px;gap:6px;margin-top:auto;}
+  .mob-tab{flex:1;text-align:center;font-size:11.5px;font-weight:700;color:var(--ink-faint);}
+  .mob-tab.on{color:var(--ink);}
+  .mob-tab .ti{width:22px;height:22px;border:2px solid currentColor;border-radius:6px;margin:0 auto 3px;}
+
+  /* empty state */
+  .empty-card{border:2.5px solid var(--ink);border-radius:18px;background:#fff;padding:34px 30px;text-align:center;max-width:430px;}
+  .check{width:74px;height:74px;border:3px solid var(--ok-b);border-radius:50%;display:grid;place-items:center;margin:0 auto 16px;background:var(--ok-bg);}
+  .check svg{width:38px;height:38px;}
+  .empty-q{border:2px dashed var(--line);border-radius:14px;min-height:120px;display:grid;place-items:center;color:var(--ink-faint);font-weight:700;font-size:14px;text-align:center;padding:18px;background:repeating-linear-gradient(135deg,#fff 0 12px,#faf8f2 12px 24px);}
+
+  /* annotation pins + legend */
+  .pin{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:50%;
+       background:var(--ink);color:#fff;font-weight:700;font-size:13px;flex:none;
+       box-shadow:0 0 0 3px var(--paper);vertical-align:middle;}
+  .pin.float{position:absolute;}
+  .annos{max-width:1240px;margin:30px auto 0;border-top:2px dashed var(--line);padding-top:20px;}
+  .annos h3{font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft);margin:0 0 14px;}
+  .anno-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px 26px;}
+  .anno{display:flex;gap:11px;align-items:flex-start;}
+  .anno .pin{margin-top:1px;}
+  .anno p{margin:0;font-size:14.5px;line-height:1.4;}
+  .anno p b{font-weight:700;}
+
+  body.no-annos .pin{display:none;}
+  body.no-annos .annos{display:none;}
+
+  .legend-row{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:0 auto 20px;max-width:1240px;font-size:13px;color:var(--ink-soft);}
+  .legend-row .lg{display:flex;align-items:center;gap:7px;font-weight:700;}
+
+  .rel{position:relative;}
+  @media (max-width:880px){
+    .frame-wrap{flex-direction:column;}
+    .toolbar{gap:14px;}
+  }
+</style>
+</head>
+<body class="">
+  <div class="toolbar">
+    <div class="tb-brand"><span class="sq"></span>NPS TimPager <small>wireframes</small></div>
+    <div class="tb-group">
+      <span class="tb-label">Direction</span>
+      <div class="seg" id="seg-dir">
+        <button data-dir="A" aria-pressed="true">A · Split view</button>
+        <button data-dir="B" aria-pressed="false">B · Triage inbox</button>
+        <button data-dir="C" aria-pressed="false">C · Command center</button>
+      </div>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Viewport</span>
+      <div class="seg" id="seg-vp">
+        <button data-vp="desktop" aria-pressed="true">Desktop</button>
+        <button data-vp="mobile" aria-pressed="false">Mobile</button>
+      </div>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">State</span>
+      <div class="seg" id="seg-state">
+        <button data-state="loaded" aria-pressed="true">Loaded</button>
+        <button data-state="empty" aria-pressed="false">Empty</button>
+      </div>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-group">
+      <div class="seg" id="seg-anno">
+        <button data-anno="on" aria-pressed="true">Notes on</button>
+        <button data-anno="off" aria-pressed="false">Notes off</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas" id="canvas"></div>
+
+<script>
+/* ============================ DATA ============================ */
+const ALERTS = [
+  {score:0, name:'Dana Whitfield', org:'Acme Retail Group', ago:'11m ago', status:'new', tier:'Enterprise',
+   email:'dana.whitfield@acmeretail.com', prev:7, arr:'$148K',
+   comment:'Third failed delivery this month and still no callback. We are actively evaluating other vendors right now.'},
+  {score:1, name:'Greg Patel', org:'Vertex Manufacturing', ago:'6m ago', status:'new', tier:'Growth',
+   email:'g.patel@vertexmfg.com', prev:6, arr:'$52K',
+   comment:'New dashboard is slower than the old one. Support told me to clear my cache — that is not a fix.'},
+  {score:2, name:'Marcus Reed', org:'Northwind Logistics', ago:'18m ago', status:'new', tier:'Enterprise',
+   email:'mreed@northwind.io', prev:8, arr:'$210K', comment:'Renewal is in 30 days and onboarding for our new region never happened.'},
+  {score:3, name:'Priya Nadkarni', org:'Helios Health', ago:'34m ago', status:'progress', tier:'Enterprise',
+   email:'priya.n@helioshealth.org', prev:5, arr:'$96K', comment:'Reporting exports keep timing out during our month-end close.'},
+  {score:4, name:'Tom Bergstrom', org:'BlueWave Media', ago:'52m ago', status:'progress', tier:'Growth',
+   email:'tom@bluewave.media', prev:6, arr:'$38K', comment:'Promised SSO setup last quarter and it is still not live.'},
+  {score:5, name:'Lena Ortiz', org:'Summit Freight', ago:'1h 20m ago', status:'resolved', tier:'Starter',
+   email:'lena.ortiz@summitfreight.com', prev:6, arr:'$21K', comment:'Billing confusion — sorted after a call. Thanks for the quick fix.'},
+];
+const SEL = ALERTS[0]; // Dana, score 0
+const COUNTS = {new:3, progress:2, resolved:1};
+
+function sev(s){ return s<=2 ? 'crit' : (s<=4 ? 'warn' : 'ok'); }
+function statusPill(st){
+  const map={new:['crit','New'], progress:['warn','In progress'], resolved:['ok','Resolved']};
+  const [c,l]=map[st];
+  return `<span class="pill ${c}"><span class="dot"></span>${l}</span>`;
+}
+
+/* ============================ SHARED PIECES ============================ */
+function pin(n){ return `<span class="pin">${n}</span>`; }
+
+function nav(active='Queue'){
+  const links=['Queue','Analytics','Settings'].map(l=>`<span class="navlink ${l===active?'on':''}">${l}</span>`).join('');
+  return `<div class="sk pad wf-nav">
+    <div class="wf-logo"><span class="mk">N</span>NPS TimPager</div>
+    <div class="row gap-3" style="margin-left:8px;">${links}</div>
+    <div class="grow"></div>
+    <div class="oncall"><span class="led"></span>On call · Active ${pin(1)}</div>
+    <div class="agent"><span class="muted" style="font-weight:700;">Sam Okafor</span><span class="avatar">SO</span></div>
+  </div>`;
+}
+
+function filters(active='new'){
+  return `<div class="filters">
+    <div class="ftab ${active==='new'?'on':''}">New <span class="cnt">${COUNTS.new}</span></div>
+    <div class="ftab ${active==='progress'?'on':''}">In progress <span class="cnt">${COUNTS.progress}</span></div>
+    <div class="ftab ${active==='resolved'?'on':''}">Resolved <span class="cnt">${COUNTS.resolved}</span></div>
+  </div>`;
+}
+
+function queueItem(a, opts={}){
+  const sel = opts.sel ? 'sel' : '';
+  const size = opts.sm ? 'sm':'md';
+  return `<div class="qitem ${sel}">
+    <div class="score ${size} ${sev(a.score)}">${a.score}</div>
+    <div class="qbody">
+      <div class="qname">${a.name}</div>
+      <div class="qmeta">${a.org}</div>
+    </div>
+    <div class="qright">
+      <span class="clock"><span class="ic"></span>${a.ago}</span>
+      ${statusPill(a.status)}
+    </div>
+  </div>`;
+}
+
+function metricGrid(a){
+  return `<div class="metrics">
+    <div class="metric"><div class="mv" style="color:var(--crit-b)">${a.score}</div><div class="ml">Current score</div><div class="trend down">▼ from ${a.prev}</div></div>
+    <div class="metric"><div class="mv">${a.prev}</div><div class="ml">Previous score</div><div class="trend" style="color:var(--ink-faint)">90 days ago</div></div>
+    <div class="metric"><div class="mv">${a.arr}</div><div class="ml">Account ARR</div><div class="trend" style="color:var(--ink-faint)">at risk</div></div>
+  </div>`;
+}
+
+function detailHeader(a, claimed){
+  return `<div class="row between wrap gap-4">
+    <div class="col gap-2" style="min-width:0;">
+      <div class="row gap-3 wrap" style="align-items:center;">
+        <span class="h-strong">${a.name}</span>
+        <span class="badge">${a.tier}</span>
+      </div>
+      <div class="muted" style="text-decoration:underline;">${a.email}</div>
+    </div>
+    ${ claimed
+      ? `<button class="btn fill">Resolve page ✓ ${pin(4)}</button>`
+      : `<button class="btn fill">Claim alert ${pin(4)}</button>` }
+  </div>`;
+}
+
+function commentBlock(a){
+  return `<div class="quote"><span class="qmark">“</span>${a.comment}</div>`;
+}
+
+function remediation(){
+  return `<div class="col gap-2">
+    <span class="tiny" style="color:var(--ink)">Resolution notes ${pin(6)}</span>
+    <div class="ta"><div class="scribble" style="width:88%"></div><div class="scribble" style="width:64%;margin-top:9px;"></div></div>
+    <div class="row gap-3" style="justify-content:flex-end;">
+      <button class="btn sec">Save draft</button>
+      <button class="btn">Save &amp; close</button>
+    </div>
+  </div>`;
+}
+
+/* ============================ DETAIL PANEL (reused) ============================ */
+function detailPanel(a, {claimed=false}={}){
+  return `<div class="col gap-4">
+    ${detailHeader(a, claimed)}
+    <div style="border-top:2px dashed var(--line);"></div>
+    ${metricGrid(a)} ${pin(5)}
+    <div class="col gap-2">
+      <span class="tiny" style="color:var(--ink)">What they said</span>
+      ${commentBlock(a)}
+    </div>
+    ${remediation()}
+  </div>`;
+}
+
+/* ============================ EMPTY STATE ============================ */
+function emptyCenter(){
+  return `<div class="empty-card">
+    <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#4a7a5c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+    <div class="h-strong" style="font-size:21px;">All clear. No outstanding pages.</div>
+    <p class="muted" style="margin:8px 0 0;">Every detractor alert has been claimed and resolved. You'll be paged here the moment a new low score lands.</p>
+    <div class="row center gap-3 mt-3">
+      <span class="oncall"><span class="led"></span>On call · Active</span>
+    </div>
+  </div>`;
+}
+
+/* ============================ DIRECTION A — SPLIT VIEW ============================ */
+function dirA_desktop(state){
+  if(state==='empty'){
+    return `<div class="col gap-5">
+      ${nav()}
+      <div class="row gap-5" style="align-items:stretch;">
+        <div class="sk pad col gap-4" style="width:340px;">
+          ${filters('new')}
+          <div class="empty-q">Queue is empty ${pin(2)}<br><span style="font-weight:400;color:var(--ink-faint)">no New · In progress · or Resolved pages</span></div>
+        </div>
+        <div class="sk alt pad grow col center" style="min-height:430px;justify-content:center;">
+          ${emptyCenter()}
+        </div>
+      </div>
+    </div>`;
+  }
+  const list = ALERTS.map((a,i)=>queueItem(a,{sel:i===0,sm:false})).join('');
+  return `<div class="col gap-5">
+    ${nav()}
+    <div class="row gap-5" style="align-items:flex-start;">
+      <div class="sk pad col gap-4" style="width:360px;flex:none;">
+        <div class="row between" style="align-items:center;">
+          <span class="h-mid">Alert queue ${pin(2)}</span>
+          <span class="tiny">6 active</span>
+        </div>
+        ${filters('new')}
+        <div class="col gap-3">${list}</div>
+      </div>
+      <div class="sk alt pad grow">
+        <div class="tiny mt-1" style="margin-bottom:12px;">Active detail · selected page ${pin(3)}</div>
+        ${detailPanel(SEL)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function dirA_mobile(state){
+  if(state==='empty'){
+    return `<div class="frame-mobile">
+      <div>
+        <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+          <div class="screen">
+            ${mobNav()}
+            ${filters('new')}
+            <div class="empty-card" style="border:0;padding:20px 4px;box-shadow:none;">
+              <div class="check" style="width:60px;height:60px;"><svg viewBox="0 0 24 24" fill="none" stroke="#4a7a5c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+              <div class="h-strong">All clear.</div>
+              <p class="muted" style="margin:6px 0 0;">No outstanding pages.</p>
+            </div>
+            ${mobTabs('queue')}
+          </div>
+        </div>
+        <div class="phone-cap">Empty queue · all resolved</div>
+      </div>
+    </div>`;
+  }
+  const list = ALERTS.slice(0,4).map((a,i)=>queueItem(a,{sel:false,sm:true})).join('');
+  return `<div class="frame-mobile">
+    <div>
+      <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+        <div class="screen">
+          ${mobNav()}
+          ${filters('new')}
+          <div class="col gap-3">${list}</div>
+          ${mobTabs('queue')}
+        </div>
+      </div>
+      <div class="phone-cap">1 · Queue list — tap a page ${pin(7)}</div>
+    </div>
+    <div>
+      <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+        <div class="screen" style="gap:11px;">
+          <div class="row gap-2" style="align-items:center;"><span class="navlink" style="font-size:13px;">‹ Back</span></div>
+          <div class="row gap-3" style="align-items:center;">
+            <div class="score md crit">0</div>
+            <div class="grow"><div class="h-mid">${SEL.name}</div><div class="muted">${SEL.tier} · ${SEL.arr} ARR</div></div>
+          </div>
+          ${commentBlock(SEL)}
+          <div class="metrics">${['0','7',SEL.arr].map((v,i)=>`<div class="metric" style="padding:9px;"><div class="mv" style="font-size:19px;">${v}</div><div class="ml" style="font-size:10px;">${['Now','Prev','ARR'][i]}</div></div>`).join('')}</div>
+          <button class="btn fill block">Claim alert</button>
+          <div class="ta" style="min-height:54px;"><div class="scribble" style="width:80%"></div></div>
+          ${mobTabs('queue')}
+        </div>
+      </div>
+      <div class="phone-cap">2 · Detail panel — full screen</div>
+    </div>
+  </div>`;
+}
+
+/* ============================ DIRECTION B — TRIAGE INBOX (3-pane) ============================ */
+function railItem(label, count, on){
+  return `<div class="ftab ${on?'on':''}" style="justify-content:space-between;width:100%;border-radius:10px;">${label}<span class="cnt">${count}</span></div>`;
+}
+function dirB_desktop(state){
+  if(state==='empty'){
+    return `<div class="col gap-5">
+      ${nav()}
+      <div class="row gap-4" style="align-items:stretch;">
+        <div class="sk pad col gap-2" style="width:200px;flex:none;">
+          <span class="tiny" style="color:var(--ink)">Views</span>
+          ${railItem('New',0,true)}${railItem('In progress',0)}${railItem('Resolved',0)}
+        </div>
+        <div class="sk pad col" style="width:300px;flex:none;justify-content:center;">
+          <div class="empty-q">No pages in this view ${pin(2)}</div>
+        </div>
+        <div class="sk alt pad grow col center" style="justify-content:center;min-height:430px;">${emptyCenter()}</div>
+      </div>
+    </div>`;
+  }
+  const list = ALERTS.map((a,i)=>queueItem(a,{sel:i===0,sm:true})).join('');
+  return `<div class="col gap-5">
+    ${nav()}
+    <div class="row gap-4" style="align-items:flex-start;">
+      <!-- filter rail -->
+      <div class="sk pad col gap-2" style="width:206px;flex:none;">
+        <span class="tiny" style="color:var(--ink)">Filter by status ${pin(2)}</span>
+        ${railItem('New',COUNTS.new,true)}${railItem('In progress',COUNTS.progress)}${railItem('Resolved',COUNTS.resolved)}
+        <div style="border-top:2px dashed var(--line);margin:8px 0;"></div>
+        <span class="tiny" style="color:var(--ink)">Saved views</span>
+        ${railItem('Enterprise only',3)}${railItem('Renewal &lt; 30d',2)}${railItem('My claims',1)}
+      </div>
+      <!-- queue middle -->
+      <div class="sk pad col gap-3" style="width:316px;flex:none;">
+        <div class="row between"><span class="h-mid">New pages</span><span class="tiny">sort · urgency</span></div>
+        ${list}
+      </div>
+      <!-- detail -->
+      <div class="sk alt pad grow">
+        <div class="tiny" style="margin-bottom:12px;">Active detail ${pin(3)}</div>
+        ${detailPanel(SEL)}
+      </div>
+    </div>
+  </div>`;
+}
+function dirB_mobile(state){
+  if(state==='empty'){
+    return dirA_mobile('empty');
+  }
+  const chips = `<div class="filters" style="overflow:auto;flex-wrap:nowrap;">
+    <div class="ftab on">New <span class="cnt">3</span></div>
+    <div class="ftab">In progress <span class="cnt">2</span></div>
+    <div class="ftab">Resolved <span class="cnt">1</span></div>
+    <div class="ftab" style="border-style:dashed;">Saved ⌄</div></div>`;
+  const list = ALERTS.slice(0,4).map(a=>queueItem(a,{sm:true})).join('');
+  return `<div class="frame-mobile">
+    <div>
+      <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+        <div class="screen">
+          ${mobNav()}
+          ${chips} ${pin(8)}
+          <div class="col gap-3">${list}</div>
+          ${mobTabs('queue')}
+        </div>
+      </div>
+      <div class="phone-cap">Filter chips replace the rail · horizontal scroll</div>
+    </div>
+    <div>
+      <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+        <div class="screen" style="gap:11px;">
+          <div class="row gap-2"><span class="navlink" style="font-size:13px;">‹ All new (3)</span></div>
+          <div class="row gap-3" style="align-items:center;"><div class="score md crit">0</div><div class="grow"><div class="h-mid">${SEL.name}</div><div class="muted">${SEL.tier}</div></div></div>
+          ${commentBlock(SEL)}
+          <button class="btn fill block">Claim alert</button>
+          <div class="metrics">${['0','7',SEL.arr].map((v,i)=>`<div class="metric" style="padding:9px;"><div class="mv" style="font-size:19px;">${v}</div><div class="ml" style="font-size:10px;">${['Now','Prev','ARR'][i]}</div></div>`).join('')}</div>
+          ${mobTabs('queue')}
+        </div>
+      </div>
+      <div class="phone-cap">Detail — same as direction A</div>
+    </div>
+  </div>`;
+}
+
+/* ============================ DIRECTION C — COMMAND CENTER (novel) ============================ */
+function miniCard(a){
+  return `<div class="qitem" style="padding:9px 10px;">
+    <div class="score sm ${sev(a.score)}">${a.score}</div>
+    <div class="qbody"><div class="qname" style="font-size:13.5px;">${a.name}</div><div class="qmeta" style="font-size:11.5px;">${a.ago}</div></div>
+  </div>`;
+}
+function dirC_desktop(state){
+  if(state==='empty'){
+    return `<div class="col gap-5">
+      ${nav()}
+      <div class="sk alt pad col center" style="min-height:440px;justify-content:center;">${emptyCenter()}</div>
+    </div>`;
+  }
+  const upnext = ALERTS.slice(1,5).map(miniCard).join('');
+  return `<div class="col gap-5">
+    ${nav()}
+    <div class="row gap-5" style="align-items:flex-start;">
+      <!-- HERO: one page at a time -->
+      <div class="sk alt pad grow col gap-4 rel">
+        <span class="pin float" style="top:-11px;left:-11px;">A1</span>
+        <div class="row between wrap">
+          <span class="tiny" style="color:var(--crit-b)">▲ Most urgent · triage now ${pin(2)}</span>
+          <span class="muted">1 of ${COUNTS.new} new</span>
+        </div>
+        <div class="row gap-5" style="align-items:center;">
+          <div class="score xl crit">0 ${''}</div>
+          <div class="col gap-2 grow">
+            <div class="row gap-3 wrap" style="align-items:center;">
+              <span class="h-strong" style="font-size:23px;">${SEL.name}</span>
+              <span class="badge">${SEL.tier}</span>
+              ${statusPill('new')}
+            </div>
+            <div class="muted" style="text-decoration:underline;">${SEL.email}</div>
+            <div class="clock" style="font-size:14px;">${pin(3)} <span class="ic"></span> paged ${SEL.ago} · dropped from ${SEL.prev} → 0</div>
+          </div>
+        </div>
+        ${commentBlock(SEL)}
+        <div class="row gap-3 wrap" style="align-items:center;">
+          <button class="btn fill" style="font-size:16px;padding:12px 26px;">Claim alert ${pin(4)}</button>
+          <button class="btn sec">Snooze 15m</button>
+          <button class="btn sec">Reassign</button>
+        </div>
+        <div style="border-top:2px dashed var(--line);"></div>
+        ${remediation()}
+      </div>
+      <!-- UP NEXT stack -->
+      <div class="sk pad col gap-3" style="width:300px;flex:none;">
+        <div class="row between"><span class="h-mid">Up next ${pin(9)}</span><span class="tiny">${COUNTS.new+COUNTS.progress} waiting</span></div>
+        ${filters('new')}
+        <div class="col gap-2">${upnext}</div>
+        <div class="muted" style="text-align:center;font-size:12px;">claim to advance the stack ↑</div>
+      </div>
+    </div>
+  </div>`;
+}
+function dirC_mobile(state){
+  if(state==='empty'){
+    return `<div class="frame-mobile"><div>
+      <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+        <div class="screen center" style="justify-content:center;">
+          <div class="empty-card" style="border:0;box-shadow:none;padding:10px;">
+            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#4a7a5c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></div>
+            <div class="h-strong">All clear.</div><p class="muted" style="margin:6px 0 0;">No outstanding pages.</p>
+          </div>
+        </div></div>
+      <div class="phone-cap">Empty — single focus card</div>
+    </div></div>`;
+  }
+  return `<div class="frame-mobile"><div>
+    <div class="phone"><div class="notch"><span class="pill-notch"></span></div>
+      <div class="screen" style="gap:12px;">
+        ${mobNav()}
+        <div class="row between"><span class="tiny" style="color:var(--crit-b)">▲ Triage now</span><span class="muted" style="font-size:12px;">1 of 3</span></div>
+        <div class="col center gap-2">
+          <div class="score xl crit" style="width:96px;height:96px;font-size:46px;">0</div>
+          <div class="h-mid">${SEL.name}</div>
+          <div class="row gap-2"><span class="badge">${SEL.tier}</span>${statusPill('new')}</div>
+        </div>
+        ${commentBlock(SEL)}
+        <button class="btn fill block" style="font-size:16px;">Claim alert ${pin(4)}</button>
+        <div class="row gap-2"><button class="btn sec grow">Snooze</button><button class="btn sec grow">Reassign</button></div>
+        <div class="muted" style="text-align:center;font-size:12px;">swipe ← for up next (${pin(9)} 4 waiting)</div>
+        ${mobTabs('triage')}
+      </div></div>
+    <div class="phone-cap">One page at a time · swipe through the stack</div>
+  </div></div>`;
+}
+
+/* ---- mobile helpers ---- */
+function mobNav(){
+  return `<div class="mob-nav">
+    <div class="wf-logo" style="font-size:14px;"><span class="mk" style="width:20px;height:20px;font-size:11px;">N</span>TimPager</div>
+    <span class="oncall" style="padding:3px 9px;font-size:11px;"><span class="led" style="width:7px;height:7px;box-shadow:none;"></span>Active</span>
+  </div>`;
+}
+function mobTabs(active){
+  const tabs=[['queue','Queue'],['triage','Triage'],['analytics','Stats'],['settings','More']];
+  return `<div class="mob-tabs">${tabs.map(([k,l])=>`<div class="mob-tab ${k===active?'on':''}"><div class="ti"></div>${l}</div>`).join('')}</div>`;
+}
+
+/* ============================ ANNOTATIONS ============================ */
+const ANNOS = {
+  A:{
+    title:'Direction A — Classic split view',
+    blurb:'The conventional two-pane triage layout. Familiar, low-risk, fastest to ship.',
+    notes:[
+      [1,'<b>On-call status is always visible</b> in the nav so the CSM never wonders if they are the one being paged.'],
+      [2,'<b>Queue is a fixed left column.</b> Score circle leads each row — the single most scannable signal when a page lands.'],
+      [3,'<b>Detail panel fills the rest.</b> Selecting a row swaps this panel; nothing navigates away from the queue.'],
+      [4,'<b>One primary action.</b> "Claim alert" flips to "Resolve page" once claimed, so state is obvious from the button alone.'],
+      [5,'<b>3-up metric grid:</b> current score, previous score, ARR at risk — the context needed to prioritize a callback.'],
+      [6,'<b>Resolution notes</b> sit under the comment so the CSM reads, then writes, in one downward flow.'],
+      [7,'<b>Mobile splits into two screens:</b> list → tap → full-screen detail, with a back affordance. Same data, stacked.'],
+    ]
+  },
+  B:{
+    title:'Direction B — Triage inbox (three-pane)',
+    blurb:'Adds a dedicated filter rail. Best when volume is high and CSMs need saved views and slicing.',
+    notes:[
+      [1,'<b>On-call status</b> carries over from A — consistent chrome across all directions.'],
+      [2,'<b>Filter rail is first-class:</b> status counts plus saved views (Enterprise only, Renewal &lt; 30d, My claims) for power triage.'],
+      [3,'<b>Detail panel is unchanged from A</b> on purpose — the experiment here is navigation, not the detail content.'],
+      [8,'<b>Mobile collapses the rail into a horizontal chip scroller</b> above the list, keeping every filter one thumb-tap away.'],
+    ]
+  },
+  C:{
+    title:'Direction C — Command center (novel)',
+    blurb:'One page at a time. Removes choice paralysis under load — the system decides what is most urgent and surfaces just that.',
+    notes:[
+      ['A1','<b>Novel idea:</b> a single hero card, not a list. The most urgent detractor is front-and-center with an oversized score.'],
+      [2,'<b>"Triage now" framing</b> tells the CSM exactly what to do; "1 of 3 new" sets expectations without showing the whole queue.'],
+      [3,'<b>Inline urgency line:</b> time paged + score drop (7 → 0) so severity reads instantly without the metric grid.'],
+      [4,'<b>Big claim button + Snooze / Reassign</b> for the on-call who can not take it right now — a real triage escape hatch.'],
+      [9,'<b>"Up next" stack</b> is a compact preview, not a working list. Claiming the hero advances the stack — like an inbox zero loop.'],
+    ]
+  }
+};
+
+/* ============================ RENDER ============================ */
+const state = { dir:'A', vp:'desktop', state:'loaded', anno:'on' };
+
+const RENDERERS = {
+  'A-desktop':dirA_desktop, 'A-mobile':dirA_mobile,
+  'B-desktop':dirB_desktop, 'B-mobile':dirB_mobile,
+  'C-desktop':dirC_desktop, 'C-mobile':dirC_mobile,
+};
+
+function legend(){
+  return `<div class="legend-row">
+    <span class="lg"><span class="score sm crit" style="width:28px;height:28px;font-size:14px;">0</span> 0–2 critical</span>
+    <span class="lg"><span class="score sm warn" style="width:28px;height:28px;font-size:14px;">3</span> 3–4 warning</span>
+    <span class="lg"><span class="score sm ok" style="width:28px;height:28px;font-size:14px;">5</span> 5–6 passive</span>
+    <span style="margin-left:auto;font-style:italic;">Low-fi wireframe · structure &amp; flow only · color limited to score severity</span>
+  </div>`;
+}
+
+function annoBlock(dir){
+  const a=ANNOS[dir];
+  return `<div class="annos">
+    <h3>Key decisions — ${a.title}</h3>
+    <div class="anno-grid">
+      ${a.notes.map(([n,t])=>`<div class="anno">${pin(n)}<p>${t}</p></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function render(){
+  const r = RENDERERS[`${state.dir}-${state.vp}`];
+  const a = ANNOS[state.dir];
+  const stateLabel = state.state==='empty' ? ' · empty state' : '';
+  const vpLabel = state.vp==='desktop' ? 'Desktop' : 'Mobile';
+  const html = `
+    <div class="stage-head">
+      <h1><span class="dir-name">${a.title}</span></h1>
+      <p>${a.blurb} &nbsp;·&nbsp; <b>${vpLabel}${stateLabel}</b></p>
+    </div>
+    ${legend()}
+    <div class="frame-wrap"><div class="frame-main">${r(state.state)}</div></div>
+    ${annoBlock(state.dir)}
+  `;
+  document.getElementById('canvas').innerHTML = html;
+  document.body.classList.toggle('no-annos', state.anno==='off');
+}
+
+/* ---- control wiring ---- */
+function wire(segId, key, attr){
+  const seg=document.getElementById(segId);
+  seg.addEventListener('click', e=>{
+    const btn=e.target.closest('button'); if(!btn) return;
+    state[key]=btn.dataset[attr];
+    [...seg.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed', b===btn));
+    // persist
+    localStorage.setItem('npstp_wf', JSON.stringify(state));
+    render();
+  });
+}
+wire('seg-dir','dir','dir');
+wire('seg-vp','vp','vp');
+wire('seg-state','state','state');
+wire('seg-anno','anno','anno');
+
+// restore
+try{
+  const saved=JSON.parse(localStorage.getItem('npstp_wf')||'null');
+  if(saved){ Object.assign(state, saved);
+    const setPressed=(id,k,attr)=>{const s=document.getElementById(id);[...s.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed', b.dataset[attr]===state[k]));};
+    setPressed('seg-dir','dir','dir'); setPressed('seg-vp','vp','vp');
+    setPressed('seg-state','state','state'); setPressed('seg-anno','anno','anno');
+  }
+}catch(e){}
+
+render();
+</script>
+</body>
+</html>

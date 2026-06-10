@@ -1,0 +1,46 @@
+name: CI
+
+# Continuous Integration: on every push to main and every pull request, install
+# dependencies, run the unit/component tests, build the app, and run the
+# Playwright end-to-end tests. Catches breakage before it reaches Railway.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npm run install:all
+
+      - name: Unit & component tests
+        run: npm test
+
+      - name: Build (server + client)
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npx playwright test
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
