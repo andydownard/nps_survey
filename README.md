@@ -8,8 +8,8 @@ rate 0–10, leave an optional comment, then see the live cohort NPS and what pe
 - **client/** — React + Vite + TypeScript (Tailwind available). The whole survey UI.
 - **server/** — Express + `better-sqlite3`. REST API at `/api/responses` and, in
   production, serves the built client.
-- **SQLite** — responses persist in `server/data/nps.db` (auto-created and seeded on first
-  run). The data dir is gitignored.
+- **SQLite** — responses persist in `server/data/nps.db` (auto-created on first run, no
+  seed/sample data — only real submissions). The data dir is gitignored.
 
 ## Develop
 
@@ -39,6 +39,19 @@ The server serves the built client whenever `NODE_ENV` is not `development`, so 
 
 Pushes to `main` deploy to Railway. Railway runs `npm run build` then `npm start`; it sets
 `PORT` automatically.
+
+### Persisting data (Railway volume)
+
+Railway's container filesystem is ephemeral, so without a volume the SQLite file resets on
+every redeploy. To keep responses, attach a volume:
+
+1. Railway dashboard → your service → **Variables/Settings → Volumes → New Volume**.
+2. Mount path: `/data` (any path is fine).
+3. Redeploy.
+
+The server reads `RAILWAY_VOLUME_MOUNT_PATH` (which Railway sets automatically when a volume
+is attached) and stores `nps.db` there — no extra config needed. You can also force a path
+with the `NPS_DB_PATH` env var, which takes precedence.
 
 ## API
 

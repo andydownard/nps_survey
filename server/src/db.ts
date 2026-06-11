@@ -2,11 +2,23 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { seedIfEmpty } from './seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// NPS_DB_PATH lets tests (and other tooling) point at a throwaway database.
-const DB_PATH = process.env.NPS_DB_PATH ?? path.join(__dirname, '../data/nps.db');
+
+// Where the SQLite file lives, in priority order:
+//   1. NPS_DB_PATH         — explicit override (tests point at a throwaway DB).
+//   2. RAILWAY_VOLUME_MOUNT_PATH — set automatically when a Railway volume is
+//      attached, so data survives redeploys/restarts.
+//   3. ../data/nps.db      — local default (gitignored).
+function resolveDbPath(): string {
+  if (process.env.NPS_DB_PATH) return process.env.NPS_DB_PATH;
+  if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+    return path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'nps.db');
+  }
+  return path.join(__dirname, '../data/nps.db');
+}
+
+const DB_PATH = resolveDbPath();
 const DATA_DIR = path.dirname(DB_PATH);
 
 let _db: Database.Database | null = null;
@@ -25,7 +37,6 @@ export function getDb(): Database.Database {
         created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
     `);
-    seedIfEmpty(_db);
   }
   return _db;
 }

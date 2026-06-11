@@ -18,7 +18,7 @@ if (IS_DEV) {
   app.use(cors({ origin: 'http://localhost:5173' }));
 }
 
-// Initialize DB (and seed) at startup
+// Initialize DB at startup
 getDb();
 
 app.use('/api/responses', responsesRouter);
