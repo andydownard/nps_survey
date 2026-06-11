@@ -57,3 +57,18 @@ with the `NPS_DB_PATH` env var, which takes precedence.
 
 - `POST /api/responses` — body `{ score: 0–10, comment?: string }` → `{ id }`
 - `GET  /api/responses?youId=<id>` → `{ responses, nps, total, counts }`
+- `DELETE /api/responses` — wipe all responses (admin). Disabled unless the
+  `ADMIN_TOKEN` env var is set; requires the token via `Authorization: Bearer <token>`
+  or `?token=<token>`. Returns `{ deleted: <count> }`.
+
+### Wiping responses
+
+Set an `ADMIN_TOKEN` env var on the service (Railway → Variables), then:
+
+```bash
+curl -X DELETE https://<your-app>/api/responses \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Without `ADMIN_TOKEN` set the endpoint stays disabled (403), so it can't be triggered by
+default.

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import Database from 'better-sqlite3';
@@ -296,5 +296,75 @@ describe('GET /api/responses', () => {
     expect(res.body.counts.det).toBe(7);
     const expectedNps = Math.round((2 / 11) * 100 - (7 / 11) * 100);
     expect(res.body.nps).toBe(expectedNps);
+  });
+});
+
+// ── DELETE /api/responses (admin reset) ─────────────────────────────────────
+
+describe('DELETE /api/responses', () => {
+  let db: Database.Database;
+  let app: ReturnType<typeof makeApp>;
+  const TOKEN = 'super-secret-token';
+
+  function seed() {
+    db.prepare('INSERT INTO responses (score, comment) VALUES (?, ?)').run(9, 'a');
+    db.prepare('INSERT INTO responses (score, comment) VALUES (?, ?)').run(3, 'b');
+  }
+
+  beforeEach(() => {
+    db = makeDb();
+    app = makeApp(db);
+    seed();
+  });
+
+  afterEach(() => {
+    delete process.env.ADMIN_TOKEN;
+  });
+
+  it('is disabled (403) when ADMIN_TOKEN is not set', async () => {
+    delete process.env.ADMIN_TOKEN;
+    const res = await request(app).delete('/api/responses');
+    expect(res.status).toBe(403);
+    expect(db.prepare('SELECT COUNT(*) n FROM responses').get()).toMatchObject({ n: 2 });
+  });
+
+  it('rejects (401) when no token is provided', async () => {
+    process.env.ADMIN_TOKEN = TOKEN;
+    const res = await request(app).delete('/api/responses');
+    expect(res.status).toBe(401);
+    expect(db.prepare('SELECT COUNT(*) n FROM responses').get()).toMatchObject({ n: 2 });
+  });
+
+  it('rejects (401) when the token is wrong', async () => {
+    process.env.ADMIN_TOKEN = TOKEN;
+    const res = await request(app)
+      .delete('/api/responses')
+      .set('Authorization', 'Bearer nope');
+    expect(res.status).toBe(401);
+    expect(db.prepare('SELECT COUNT(*) n FROM responses').get()).toMatchObject({ n: 2 });
+  });
+
+  it('wipes all rows with a correct bearer token', async () => {
+    process.env.ADMIN_TOKEN = TOKEN;
+    const res = await request(app)
+      .delete('/api/responses')
+      .set('Authorization', `Bearer ${TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ deleted: 2 });
+    expect(db.prepare('SELECT COUNT(*) n FROM responses').get()).toMatchObject({ n: 0 });
+  });
+
+  it('accepts the token via ?token= query as well', async () => {
+    process.env.ADMIN_TOKEN = TOKEN;
+    const res = await request(app).delete(`/api/responses?token=${TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(2);
+  });
+
+  it('resets ids so the next insert starts at 1', async () => {
+    process.env.ADMIN_TOKEN = TOKEN;
+    await request(app).delete('/api/responses').set('Authorization', `Bearer ${TOKEN}`);
+    const res = await request(app).post('/api/responses').send({ score: 10, comment: 'fresh' });
+    expect(res.body.id).toBe(1);
   });
 });
