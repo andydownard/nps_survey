@@ -1,18 +1,18 @@
-import { useState } from 'react';
-import { Brand } from './components/Brand';
+import { useEffect, useState } from 'react';
+import { TopBar } from './components/TopBar';
+import { Drawer } from './components/Drawer';
 import { StepDots } from './components/StepDots';
 import { Page1Rating } from './components/Page1Rating';
 import { Page2Comment } from './components/Page2Comment';
 import { Page3Results } from './components/Page3Results';
+import { AdminSignIn } from './components/AdminSignIn';
+import { AdminHome } from './components/AdminHome';
+import { AdminReport } from './components/AdminReport';
 import { postResponse } from './api';
+import { getSession, logout } from './adminApi';
 
-type Page = 1 | 2 | 3;
-
-interface AppState {
-  page: Page;
-  score: number | null;
-  submittedId: number | null;
-}
+type SurveyPage = 1 | 2 | 3;
+type View = 'survey' | 'admin-signin' | 'admin-home' | 'admin-report';
 
 const CARD_STYLE: React.CSSProperties = {
   background: 'var(--surface)',
@@ -22,66 +22,88 @@ const CARD_STYLE: React.CSSProperties = {
   boxShadow: '0 8px 28px rgba(31,41,55,.06)',
 };
 
-const PAGE_STYLE: React.CSSProperties = {
-  animation: 'rise .32s ease both',
-};
+const PAGE_STYLE: React.CSSProperties = { animation: 'rise .32s ease both' };
 
 export function App() {
-  const [state, setState] = useState<AppState>({ page: 1, score: null, submittedId: null });
+  const [view, setView] = useState<View>('survey');
+  const [page, setPage] = useState<SurveyPage>(1);
+  const [score, setScore] = useState<number | null>(null);
+  const [submittedId, setSubmittedId] = useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [adminPhone, setAdminPhone] = useState<string | null>(null);
 
-  function handleSelect(score: number) {
-    setState({ page: 2, score, submittedId: null });
-  }
+  // Restore an existing admin session on load (so the menu reflects it), but
+  // stay on the survey — the admin only navigates in via the menu.
+  useEffect(() => {
+    getSession().then(s => { if (s.authenticated && s.phone) setAdminPhone(s.phone); }).catch(() => {});
+  }, []);
+
+  function handleSelect(s: number) { setScore(s); setSubmittedId(null); setPage(2); }
 
   async function handleSubmit(comment: string) {
-    if (state.score == null) return;
+    if (score == null) return;
     try {
-      const { id } = await postResponse(state.score, comment);
-      setState(s => ({ ...s, page: 3, submittedId: id }));
+      const { id } = await postResponse(score, comment);
+      setSubmittedId(id);
     } catch {
-      // still advance — show results even if save failed
-      setState(s => ({ ...s, page: 3, submittedId: null }));
+      setSubmittedId(null);
     }
+    setPage(3);
   }
 
-  function handleSkip() {
-    handleSubmit('');
+  function restartSurvey() { setScore(null); setSubmittedId(null); setPage(1); }
+
+  function openAdmin() {
+    setDrawerOpen(false);
+    setView(adminPhone ? 'admin-home' : 'admin-signin');
   }
 
-  function handleBack() {
-    setState(s => ({ ...s, page: 1 }));
-  }
-
-  function handleRestart() {
-    setState({ page: 1, score: null, submittedId: null });
+  async function signOut() {
+    await logout().catch(() => {});
+    setAdminPhone(null);
+    setView('survey');
+    restartSurvey();
   }
 
   return (
     <div style={{ width: '100%', maxWidth: 480 }}>
-      <Brand />
-      <StepDots page={state.page} />
+      <TopBar onMenu={() => setDrawerOpen(true)} />
+      {view === 'survey' && <StepDots page={page} />}
+
       <div style={CARD_STYLE}>
-        {state.page === 1 && (
-          <div key="p1" style={PAGE_STYLE}>
-            <Page1Rating onSelect={handleSelect} />
+        {view === 'survey' && page === 1 && (
+          <div key="p1" style={PAGE_STYLE}><Page1Rating onSelect={handleSelect} /></div>
+        )}
+        {view === 'survey' && page === 2 && score != null && (
+          <div key="p2" style={PAGE_STYLE}>
+            <Page2Comment score={score} onContinue={handleSubmit} onSkip={() => handleSubmit('')} onBack={() => setPage(1)} />
           </div>
         )}
-        {state.page === 2 && state.score != null && (
-          <div key="p2" style={PAGE_STYLE}>
-            <Page2Comment
-              score={state.score}
-              onContinue={handleSubmit}
-              onSkip={handleSkip}
-              onBack={handleBack}
+        {view === 'survey' && page === 3 && (
+          <div key="p3" style={PAGE_STYLE}><Page3Results youId={submittedId} onRestart={restartSurvey} /></div>
+        )}
+
+        {view === 'admin-signin' && (
+          <div key="signin" style={PAGE_STYLE}>
+            <AdminSignIn
+              onBack={() => setView('survey')}
+              onAuthed={phone => { setAdminPhone(phone); setView('admin-home'); }}
             />
           </div>
         )}
-        {state.page === 3 && (
-          <div key="p3" style={PAGE_STYLE}>
-            <Page3Results youId={state.submittedId} onRestart={handleRestart} />
+        {view === 'admin-home' && adminPhone && (
+          <div key="home" style={PAGE_STYLE}>
+            <AdminHome phone={adminPhone} onSignOut={signOut} onOpenReport={() => setView('admin-report')} />
+          </div>
+        )}
+        {view === 'admin-report' && (
+          <div key="report" style={PAGE_STYLE}>
+            <AdminReport onBack={() => setView('admin-home')} onExpired={() => { setAdminPhone(null); setView('admin-signin'); }} />
           </div>
         )}
       </div>
+
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onAdmin={openAdmin} authed={adminPhone != null} />
     </div>
   );
 }

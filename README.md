@@ -126,3 +126,33 @@ as a CLI (`npm run digest` → `node dist/send-digest.js`) for local runs.
 curl -X POST https://<your-app>/api/digest/send \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
+
+## Admin sign-in (Twilio Verify SMS)
+
+Admins reach the reporting view from the in-app menu (hamburger → **Admin sign in**). Auth is
+an SMS one-time code via [Twilio Verify](https://www.twilio.com/docs/verify): enter a phone
+number → receive a code → verify. Successful verification sets an HMAC-signed, httpOnly
+session cookie. Admin numbers are registered out of band via `ADMIN_PHONES` — there's no
+self-registration. A number that isn't on the allowlist gets an explicit "not registered"
+message (the list is small and internal).
+
+### Configuration (env vars)
+
+| Var | Required | Notes |
+|-----|----------|-------|
+| `TWILIO_ACCOUNT_SID` | yes | From the Twilio Console (starts `AC…`). |
+| `TWILIO_AUTH_TOKEN` | yes | Secret — copy it straight into env vars, never into code. |
+| `TWILIO_VERIFY_SERVICE_ID` | yes | The Verify Service SID (starts `VA…`). `TWILIO_VERIFY_SERVICE_SID` is also accepted. |
+| `ADMIN_PHONES` | yes | Comma-separated allowlist in E.164, e.g. `+14155551234,+14155555678`. **No entry → nobody can sign in.** |
+| `SESSION_SECRET` | recommended | Signs session cookies. If unset, an ephemeral secret is generated and **admin sessions reset on every restart/redeploy**. |
+
+If the Twilio vars are missing, sign-in returns a clear "not configured" error rather than
+failing obscurely.
+
+### API
+
+- `POST /api/admin/auth/start` — body `{ phone }` → sends an SMS code (allowlisted numbers only).
+- `POST /api/admin/auth/check` — body `{ phone, code }` → on approval, sets the session cookie.
+- `POST /api/admin/auth/logout` — clears the session.
+- `GET  /api/admin/session` — `{ authenticated, phone? }` (phone masked).
+- `GET  /api/admin/report` — session-gated; returns the same data as the daily digest.
