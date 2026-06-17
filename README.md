@@ -99,16 +99,28 @@ Rendering lives in `server/src/digest.ts`; `server/src/send-digest.ts` is the cr
 | `DIGEST_FROM` | yes | Verified from-address, e.g. `reports@yourdomain.com`. |
 | `DIGEST_TO` | yes | Recipient(s), comma-separated. One message is sent per recipient. |
 | `POSTMARK_MESSAGE_STREAM` | no | Defaults to `broadcast`. |
+| `DIGEST_CRON` | no | UTC crontab expression for the daily send. Defaults to `0 14 * * *` (14:00 UTC). |
 | `DASHBOARD_URL` | no | URL behind the "View full dashboard" button. |
 | `DIGEST_COHORT` | no | Cohort name shown in the footer. |
 
-### Sending
+### Scheduling (in-process)
 
-- **Scheduled:** add a Railway **Cron** service that runs `npm run digest` (which runs
-  `node dist/send-digest.js`). Set the schedule to daily, e.g. `0 14 * * *` (14:00 UTC).
-  Day boundaries are computed in UTC, so "yesterday" means the prior UTC calendar day.
-- **On demand (test):** `POST /api/digest/send` with the `ADMIN_TOKEN` (see above) — handy
-  for verifying Postmark config without waiting for cron.
+The digest is scheduled **inside the web service** (via `node-cron`, in
+`server/src/scheduler.ts`) — no separate Railway service is needed. This is deliberate: a
+Railway volume can only attach to one service, so a standalone cron service couldn't read
+the SQLite DB. The web service runs a single instance (the volume enforces that), so there's
+no risk of multiple replicas double-sending.
+
+The scheduler arms itself on startup **only when `POSTMARK_SERVER_TOKEN` is set** (and is
+skipped in dev). Day boundaries are computed in UTC, so "yesterday" means the prior UTC
+calendar day — keep `DIGEST_CRON` in UTC. To go live: set the env vars above on the web
+service and redeploy; the logs will show `[digest] scheduled: "0 14 * * *" (UTC)`.
+
+### Sending on demand (test)
+
+`POST /api/digest/send` with the `ADMIN_TOKEN` (see above) sends immediately — handy for
+verifying Postmark config without waiting for the schedule. The same logic is also available
+as a CLI (`npm run digest` → `node dist/send-digest.js`) for local runs.
 
 ```bash
 curl -X POST https://<your-app>/api/digest/send \
