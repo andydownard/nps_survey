@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { responsesRouter } from './routes/responses.js';
+import { digestRouter } from './routes/digest.js';
 import { getDb } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,7 @@ if (IS_DEV) {
 getDb();
 
 app.use('/api/responses', responsesRouter);
+app.use('/api/digest', digestRouter);
 
 if (!IS_DEV) {
   const distPath = path.join(__dirname, '../../client/dist');
