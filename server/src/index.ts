@@ -24,6 +24,7 @@ if (IS_DEV) {
 // Initialize DB at startup
 getDb();
 
+app.get('/healthz', (_req, res) => res.status(200).json({ ok: true }));
 app.use('/api/responses', responsesRouter);
 app.use('/api/digest', digestRouter);
 app.use('/api/admin', adminRouter);

@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+.git
+e2e
+playwright-report
+**/data
+*.md
+chats
+project
+.github
+**/*.test.ts
+**/*.test.tsx

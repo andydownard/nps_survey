@@ -4,7 +4,6 @@
 // sendDigest() is the only piece that touches the network.
 
 import type Database from 'better-sqlite3';
-import { ServerClient, Message } from 'postmark';
 import { cat, countScores, npsFromCounts, type Counts } from './nps.js';
 
 // ── palette (resolved from the design's CSS variables) ──────────────────────
@@ -350,11 +349,28 @@ export async function sendDigest(
     cohort: process.env.DIGEST_COHORT,
   });
 
-  const client = new ServerClient(token);
   const stream = process.env.POSTMARK_MESSAGE_STREAM || 'broadcast';
 
+  // Shape of a single Postmark message (mirrors the SDK's Message fields we use).
+  interface PostmarkMessage {
+    From: string;
+    To: string;
+    Subject: string;
+    HtmlBody: string;
+    TextBody: string;
+    MessageStream: string;
+  }
+
+  // Shape of a single element in Postmark's batch response.
+  interface PostmarkBatchResult {
+    ErrorCode: number;
+    Message: string;
+    MessageID: string;
+    To: string;
+  }
+
   // One message per recipient so addresses aren't disclosed to each other.
-  const messages: Message[] = to.map(addr => ({
+  const messages: PostmarkMessage[] = to.map(addr => ({
     From: from,
     To: addr,
     Subject: subject,
@@ -363,7 +379,32 @@ export async function sendDigest(
     MessageStream: stream,
   }));
 
-  const results = await client.sendEmailBatch(messages);
+  // Send via Postmark's batch REST endpoint directly (no SDK). 15s timeout.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch('https://api.postmarkapp.com/email/batch', {
+      method: 'POST',
+      headers: {
+        'X-Postmark-Server-Token': token,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(messages),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  // Transport/auth-level failure (not per-message): surface status + body.
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Postmark batch request failed: HTTP ${response.status} ${response.statusText} ${body}`);
+  }
+
+  const results = (await response.json()) as PostmarkBatchResult[];
   const messageIds = results.map(r => r.MessageID).filter(Boolean) as string[];
   const failed = results.filter(r => r.ErrorCode !== 0);
   if (failed.length) {
