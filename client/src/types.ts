@@ -14,3 +14,24 @@ export interface NpsSummary {
   total: number;
   counts: { pro: number; pas: number; det: number };
 }
+
+export interface ReportQuote {
+  score: number;
+  comment: string;
+  when: string;
+  category: Category;
+}
+
+// Mirrors the server's computeDigest() output (server/src/digest.ts).
+export interface ReportData {
+  dateLabel: string;
+  dateLong: string;
+  total: number;
+  nps: number;
+  counts: { pro: number; pas: number; det: number };
+  pct: { pro: number; pas: number; det: number };
+  avg7: number | null;
+  trend: number | null;
+  detractors: ReportQuote[];
+  topPromoter: ReportQuote | null;
+}

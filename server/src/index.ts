@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { responsesRouter } from './routes/responses.js';
 import { digestRouter } from './routes/digest.js';
+import { adminRouter } from './routes/admin.js';
 import { getDb } from './db.js';
 import { startDigestSchedule } from './scheduler.js';
 
@@ -25,6 +26,7 @@ getDb();
 
 app.use('/api/responses', responsesRouter);
 app.use('/api/digest', digestRouter);
+app.use('/api/admin', adminRouter);
 
 if (!IS_DEV) {
   const distPath = path.join(__dirname, '../../client/dist');
