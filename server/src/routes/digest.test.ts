@@ -51,4 +51,11 @@ describe('POST /api/digest/send', () => {
     expect(res.body.skipped).toBe(true);
     expect(res.body.reason).toContain('POSTMARK_SERVER_TOKEN');
   });
+
+  it('accepts range=all and a to= override (still gated, no-ops without Postmark)', async () => {
+    process.env.ADMIN_TOKEN = TOKEN;
+    const res = await request(app).post(`/api/digest/send?token=${TOKEN}&range=all&to=sample@example.com`);
+    expect(res.status).toBe(200);
+    expect(res.body.skipped).toBe(true); // no POSTMARK token in tests
+  });
 });

@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getReport, AdminApiError } from '../adminApi';
+import { BackButton } from './BackButton';
 import type { ReportData, ReportQuote, Category } from '../types';
-
-const BackArrow = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-);
 
 const CAT: Record<Category, { color: string; bg: string; label: string }> = {
   pro: { color: 'var(--pro)', bg: 'var(--pro-bg)', label: 'Promoter' },
@@ -23,6 +20,10 @@ interface AdminReportProps {
 export function AdminReport({ onBack, onExpired }: AdminReportProps) {
   const [data, setData] = useState<ReportData | null>(null);
   const [err, setErr] = useState('');
+  // Keep onExpired in a ref so the fetch effect can run once on mount without
+  // re-firing every time the parent re-renders (which changes the callback's identity).
+  const onExpiredRef = useRef(onExpired);
+  onExpiredRef.current = onExpired;
 
   useEffect(() => {
     let alive = true;
@@ -30,16 +31,16 @@ export function AdminReport({ onBack, onExpired }: AdminReportProps) {
       .then(d => { if (alive) setData(d); })
       .catch(e => {
         if (!alive) return;
-        if (e instanceof AdminApiError && e.code === 'unauthenticated') onExpired();
+        if (e instanceof AdminApiError && e.code === 'unauthenticated') onExpiredRef.current();
         else setErr('Could not load the report.');
       });
     return () => { alive = false; };
-  }, [onExpired]);
+  }, []);
 
   return (
     <div>
       <div style={{ marginBottom: 14 }}>
-        <button type="button" onClick={onBack} style={backBtn}>{BackArrow} Back</button>
+        <BackButton onClick={onBack}>Back</BackButton>
       </div>
 
       {err && <p style={{ color: 'var(--det)', fontWeight: 600 }}>{err}</p>}
@@ -131,5 +132,3 @@ function QuoteCard({ q }: { q: ReportQuote }) {
     </div>
   );
 }
-
-const backBtn: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 0' };

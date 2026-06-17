@@ -47,8 +47,11 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
   const body = token.slice(0, dot);
   const sig = token.slice(dot + 1);
   const expected = sign(body);
-  // Constant-time compare of equal-length signatures.
-  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+  // Constant-time compare. Compare on the Buffers' byte lengths (not string
+  // length) so a crafted multibyte signature can't make timingSafeEqual throw.
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
     return null;
   }
   try {

@@ -35,6 +35,8 @@ interface Row { id: number; score: number; comment: string; created_at: string }
 export interface Quote { score: number; comment: string; when: string; category: 'pro' | 'pas' | 'det' }
 
 export interface DigestData {
+  /** 'daily' = the prior UTC day; 'all' = every response to date. */
+  scope: 'daily' | 'all';
   /** The day the report covers, formatted "Mon, Jun 16". */
   dateLabel: string;
   /** "Monday, June 16" for the hero. */
@@ -88,12 +90,19 @@ function rowsForDay(db: Database.Database, dayStartMs: number): Row[] {
  * is the mean of daily NPS over the seven days preceding the report day,
  * counting only days that actually had responses.
  */
-export function computeDigest(db: Database.Database, now: Date = new Date()): DigestData {
-  const todayStart = utcDayStart(now);
-  const dayStart = todayStart - 86_400_000; // yesterday
+export function computeDigest(
+  db: Database.Database,
+  now: Date = new Date(),
+  opts: { allTime?: boolean } = {},
+): DigestData {
+  const allTime = opts.allTime === true;
+  const dayStart = utcDayStart(now) - 86_400_000; // yesterday
   const day = new Date(dayStart);
 
-  const rows = rowsForDay(db, dayStart);
+  // 'all' scope ignores the date window and has no daily trend baseline.
+  const rows = allTime
+    ? (db.prepare('SELECT id, score, comment, created_at FROM responses ORDER BY created_at DESC').all() as { id: number; score: number; comment: string; created_at: string }[])
+    : rowsForDay(db, dayStart);
   const total = rows.length;
   const counts = countScores(rows.map(r => r.score));
   const nps = npsFromCounts(counts);
@@ -106,15 +115,17 @@ export function computeDigest(db: Database.Database, now: Date = new Date()): Di
       };
 
   // 7-day baseline: average of daily NPS for the 7 days before the report day.
-  const dailyNps: number[] = [];
-  for (let i = 1; i <= 7; i++) {
-    const r = rowsForDay(db, dayStart - i * 86_400_000);
-    if (r.length === 0) continue;
-    dailyNps.push(npsFromCounts(countScores(r.map(x => x.score))));
+  // Skipped for all-time reports (no single reference day to trend against).
+  let avg7: number | null = null;
+  if (!allTime) {
+    const dailyNps: number[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const r = rowsForDay(db, dayStart - i * 86_400_000);
+      if (r.length === 0) continue;
+      dailyNps.push(npsFromCounts(countScores(r.map(x => x.score))));
+    }
+    if (dailyNps.length > 0) avg7 = Math.round(dailyNps.reduce((a, b) => a + b, 0) / dailyNps.length);
   }
-  const avg7 = dailyNps.length === 0
-    ? null
-    : Math.round(dailyNps.reduce((a, b) => a + b, 0) / dailyNps.length);
   const trend = avg7 === null ? null : nps - avg7;
 
   const withComment = rows.filter(r => r.comment.trim() !== '');
@@ -133,8 +144,9 @@ export function computeDigest(db: Database.Database, now: Date = new Date()): Di
     : null;
 
   return {
-    dateLabel: `${DOW[day.getUTCDay()].slice(0, 3)}, ${MON[day.getUTCMonth()]} ${day.getUTCDate()}`,
-    dateLong: `${DOW[day.getUTCDay()]}, ${MON_LONG[day.getUTCMonth()]} ${day.getUTCDate()}`,
+    scope: allTime ? 'all' : 'daily',
+    dateLabel: allTime ? 'All time' : `${DOW[day.getUTCDay()].slice(0, 3)}, ${MON[day.getUTCMonth()]} ${day.getUTCDate()}`,
+    dateLong: allTime ? 'all time' : `${DOW[day.getUTCDay()]}, ${MON_LONG[day.getUTCMonth()]} ${day.getUTCDate()}`,
     total, nps, counts, pct, avg7, trend, detractors, topPromoter,
   };
 }
@@ -174,7 +186,9 @@ function sectionHeader(label: string, color: string): string {
 export function renderDigest(d: DigestData, opts: { dashboardUrl?: string; cohort?: string } = {}): { subject: string; html: string; text: string } {
   const dashboardUrl = opts.dashboardUrl || '#';
   const cohort = opts.cohort || 'your cohort';
-  const subject = `Daily NPS report — ${d.dateLabel}`;
+  const allTime = d.scope === 'all';
+  const subject = allTime ? 'NPS report — all time' : `Daily NPS report — ${d.dateLabel}`;
+  const heroLabel = allTime ? 'All time' : `Yesterday · ${d.dateLong}`;
 
   // The pill resets letter-spacing/line-height (the headline number sets
   // letter-spacing:-2px, which otherwise collapses the pill's spaces) and
@@ -187,8 +201,8 @@ export function renderDigest(d: DigestData, opts: { dashboardUrl?: string; cohor
 
   // Hero differs for an empty day so the email still reads well.
   const heroBody = d.total === 0
-    ? `<div style="font:700 30px/1.1 sans-serif;color:#ffffff;letter-spacing:-1px;">No responses yesterday</div>
-       <p style="margin:14px 0 0;font:400 13.5px/1.45 sans-serif;color:#ffffff;opacity:.85;">Nothing came in for ${esc(d.dateLong)}. We'll keep watching.</p>`
+    ? `<div style="font:700 30px/1.1 sans-serif;color:#ffffff;letter-spacing:-1px;">No responses ${allTime ? 'yet' : 'yesterday'}</div>
+       <p style="margin:14px 0 0;font:400 13.5px/1.45 sans-serif;color:#ffffff;opacity:.85;">Nothing came in ${allTime ? 'so far' : `for ${esc(d.dateLong)}`}. We'll keep watching.</p>`
     : `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
          <td valign="bottom" style="font:700 64px/1 sans-serif;color:#ffffff;letter-spacing:-2px;">${signed(d.nps)}</td>
          ${trendCell}
@@ -245,9 +259,9 @@ export function renderDigest(d: DigestData, opts: { dashboardUrl?: string; cohor
         <tr><td style="background:${C.brand};padding:26px 22px 22px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="font:600 13px sans-serif;color:#ffffff;letter-spacing:.2px;">Vibe Coding Bootcamp</td>
-            <td align="right" style="font:700 11px sans-serif;color:#ffffff;opacity:.7;letter-spacing:1.4px;text-transform:uppercase;">Daily report</td>
+            <td align="right" style="font:700 11px sans-serif;color:#ffffff;opacity:.7;letter-spacing:1.4px;text-transform:uppercase;">${allTime ? 'Report' : 'Daily report'}</td>
           </tr></table>
-          <p style="margin:18px 0 10px;font:600 14px sans-serif;color:#ffffff;opacity:.95;">Yesterday · ${esc(d.dateLong)}</p>
+          <p style="margin:18px 0 10px;font:600 14px sans-serif;color:#ffffff;opacity:.95;">${esc(heroLabel)}</p>
           ${heroBody}
         </td></tr>
 
@@ -278,9 +292,9 @@ export function renderDigest(d: DigestData, opts: { dashboardUrl?: string; cohor
 
 function renderText(d: DigestData, dashboardUrl: string): string {
   const lines: string[] = [];
-  lines.push(`DAILY NPS REPORT — ${d.dateLong}`, '');
+  lines.push(d.scope === 'all' ? 'NPS REPORT — ALL TIME' : `DAILY NPS REPORT — ${d.dateLong}`, '');
   if (d.total === 0) {
-    lines.push('No responses yesterday.');
+    lines.push(d.scope === 'all' ? 'No responses yet.' : 'No responses yesterday.');
   } else {
     const trend = d.trend !== null ? `  (${signed(d.trend)} vs 7-day avg)` : '';
     lines.push(`NPS: ${signed(d.nps)}${trend}`);
@@ -311,17 +325,26 @@ export interface SendResult { skipped: boolean; reason?: string; messageIds?: st
  * Config is read from the environment:
  *   POSTMARK_SERVER_TOKEN, DIGEST_FROM, DIGEST_TO (comma-separated),
  *   POSTMARK_MESSAGE_STREAM (default "broadcast"), DASHBOARD_URL, DIGEST_COHORT.
+ *
+ * opts.allTime → report over every response instead of just yesterday.
+ * opts.to      → override DIGEST_TO recipients (e.g. a one-off sample send).
  */
-export async function sendDigest(db: Database.Database, now: Date = new Date()): Promise<SendResult> {
+export async function sendDigest(
+  db: Database.Database,
+  now: Date = new Date(),
+  opts: { allTime?: boolean; to?: string[] } = {},
+): Promise<SendResult> {
   const token = process.env.POSTMARK_SERVER_TOKEN;
   const from = process.env.DIGEST_FROM;
-  const to = (process.env.DIGEST_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+  const to = (opts.to && opts.to.length > 0
+    ? opts.to
+    : (process.env.DIGEST_TO || '').split(',').map(s => s.trim()).filter(Boolean));
 
   if (!token) return { skipped: true, reason: 'POSTMARK_SERVER_TOKEN is not set' };
   if (!from) return { skipped: true, reason: 'DIGEST_FROM is not set' };
-  if (to.length === 0) return { skipped: true, reason: 'DIGEST_TO is not set' };
+  if (to.length === 0) return { skipped: true, reason: 'no recipients (DIGEST_TO unset and no override)' };
 
-  const data = computeDigest(db, now);
+  const data = computeDigest(db, now, { allTime: opts.allTime });
   const { subject, html, text } = renderDigest(data, {
     dashboardUrl: process.env.DASHBOARD_URL,
     cohort: process.env.DIGEST_COHORT,

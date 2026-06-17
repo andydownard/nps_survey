@@ -67,6 +67,19 @@ describe('computeDigest()', () => {
     expect(d.trend).toBe(200);
   });
 
+  it('all-time scope ignores the date window and drops the trend', () => {
+    const db = makeDb();
+    add(db, 10, 'today', '2026-06-17T02:00:00Z');   // today
+    add(db, 9, 'yesterday', `${YDAY}T12:00:00Z`);   // yesterday
+    add(db, 0, 'old', '2026-06-10T12:00:00Z');      // a week ago
+    const d = computeDigest(db, NOW, { allTime: true });
+    expect(d.scope).toBe('all');
+    expect(d.total).toBe(3);                          // every response, not just yesterday
+    expect(d.dateLabel).toBe('All time');
+    expect(d.avg7).toBeNull();
+    expect(d.trend).toBeNull();
+  });
+
   it('picks detractor comments and the highest-scoring promoter quote', () => {
     const db = makeDb();
     add(db, 9, 'good', `${YDAY}T22:00:00Z`);
