@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import Database from 'better-sqlite3';
-import { makeResponsesRouter, cat, toRelative } from './responses.js';
+import { makeResponsesRouter, toRelative } from './responses.js';
+import { cat } from '../nps.js';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 

@@ -3,7 +3,9 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { responsesRouter } from './routes/responses.js';
+import { digestRouter } from './routes/digest.js';
 import { getDb } from './db.js';
+import { startDigestSchedule } from './scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 3001);
@@ -22,6 +24,7 @@ if (IS_DEV) {
 getDb();
 
 app.use('/api/responses', responsesRouter);
+app.use('/api/digest', digestRouter);
 
 if (!IS_DEV) {
   const distPath = path.join(__dirname, '../../client/dist');
@@ -31,4 +34,6 @@ if (!IS_DEV) {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  // Schedule the daily digest in the running web process (skipped in dev).
+  if (!IS_DEV) startDigestSchedule();
 });

@@ -1,15 +1,8 @@
 import { Router, Request, Response } from 'express';
-import crypto from 'crypto';
 import type Database from 'better-sqlite3';
 import { getDb } from '../db.js';
-
-// Constant-time string compare so the admin token can't be guessed via timing.
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ab, bb);
-}
+import { countScores, npsFromCounts } from '../nps.js';
+import { requireAdmin } from '../auth.js';
 
 export function toRelative(isoString: string): string {
   const then = new Date(isoString).getTime();
@@ -20,12 +13,6 @@ export function toRelative(isoString: string): string {
   if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)}m ago`;
   if (diffH < 24) return `${diffH}h ago`;
   return `${diffD}d ago`;
-}
-
-export function cat(score: number): 'pro' | 'pas' | 'det' {
-  if (score >= 9) return 'pro';
-  if (score >= 7) return 'pas';
-  return 'det';
 }
 
 export function makeResponsesRouter(dbGetter: () => Database.Database = getDb) {
@@ -55,9 +42,8 @@ export function makeResponsesRouter(dbGetter: () => Database.Database = getDb) {
     const rows = db.prepare('SELECT id, score, comment, created_at FROM responses ORDER BY created_at DESC').all() as Row[];
 
     const total = rows.length;
-    const counts = { pro: 0, pas: 0, det: 0 };
-    for (const r of rows) counts[cat(r.score)]++;
-    const nps = total > 0 ? Math.round((counts.pro / total) * 100 - (counts.det / total) * 100) : 0;
+    const counts = countScores(rows.map(r => r.score));
+    const nps = npsFromCounts(counts);
 
     const responses = rows.map(r => ({
       id: r.id,
@@ -74,18 +60,7 @@ export function makeResponsesRouter(dbGetter: () => Database.Database = getDb) {
   // Disabled entirely unless ADMIN_TOKEN is set, so it can't be abused by default.
   // Auth via `Authorization: Bearer <token>` or `?token=<token>`.
   router.delete('/', (req: Request, res: Response) => {
-    const token = process.env.ADMIN_TOKEN;
-    if (!token) {
-      res.status(403).json({ error: 'reset disabled: ADMIN_TOKEN is not set' });
-      return;
-    }
-
-    const bearer = req.get('authorization')?.replace(/^Bearer\s+/i, '');
-    const provided = bearer ?? (typeof req.query.token === 'string' ? req.query.token : undefined);
-    if (!provided || !safeEqual(provided, token)) {
-      res.status(401).json({ error: 'unauthorized' });
-      return;
-    }
+    if (!requireAdmin(req, res)) return;
 
     const db = dbGetter();
     const info = db.prepare('DELETE FROM responses').run();
