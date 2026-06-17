@@ -37,8 +37,16 @@ The server serves the built client whenever `NODE_ENV` is not `development`, so 
 
 ## Deploy
 
-Pushes to `main` deploy to Railway. Railway runs `npm run build` then `npm start`; it sets
-`PORT` automatically.
+Pushes to `main` deploy to Railway, which builds from the repo's **multi-stage `Dockerfile`**
+(configured via `railway.json`). The build stage installs deps and compiles the server +
+client; the runtime stage ships only `server/dist`, `client/dist`, and pruned production
+dependencies. Because Docker caches the dependency-install layers, **code-only deploys skip
+reinstalling and finish in seconds**. Railway sets `PORT` automatically and health-checks
+`GET /healthz`.
+
+The server has a deliberately small runtime footprint — `express`, `cors`, and
+`better-sqlite3` only. Postmark (email) and Twilio Verify (SMS) are called over their REST
+APIs with the built-in `fetch`, so there are no heavyweight vendor SDKs to install.
 
 ### Persisting data (Railway volume)
 
@@ -105,11 +113,11 @@ Rendering lives in `server/src/digest.ts`; `server/src/send-digest.ts` is the cr
 
 ### Scheduling (in-process)
 
-The digest is scheduled **inside the web service** (via `node-cron`, in
-`server/src/scheduler.ts`) — no separate Railway service is needed. This is deliberate: a
-Railway volume can only attach to one service, so a standalone cron service couldn't read
-the SQLite DB. The web service runs a single instance (the volume enforces that), so there's
-no risk of multiple replicas double-sending.
+The digest is scheduled **inside the web service** (a native timer in
+`server/src/scheduler.ts`, no cron library) — no separate Railway service is needed. This is
+deliberate: a Railway volume can only attach to one service, so a standalone cron service
+couldn't read the SQLite DB. The web service runs a single instance (the volume enforces
+that), so there's no risk of multiple replicas double-sending.
 
 The scheduler arms itself on startup **only when `POSTMARK_SERVER_TOKEN` is set** (and is
 skipped in dev). Day boundaries are computed in UTC, so "yesterday" means the prior UTC
